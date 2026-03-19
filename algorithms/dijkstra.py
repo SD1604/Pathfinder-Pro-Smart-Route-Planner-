@@ -26,7 +26,6 @@ def custom_dijkstra(G, start_node, end_node):
         # 2. Relax edges
         # G[u].items() gives us all neighbors 'v' and edge data
         for v, edge_data in G[u].items():
-            # In OSMnx, edge_data is a dictionary. We use the 'length' attribute.
             # We use [0] because OSMnx graphs can have multiple edges between nodes
             weight = edge_data[0].get('length', 1) 
             
@@ -47,10 +46,8 @@ def custom_dijkstra(G, start_node, end_node):
     # Reverse the path to get it from Start -> End
     path = path[::-1]
     
-    # ... (existing reconstruction code)
-    
     if path[0] == start_node:
-        total_distance = distances[end_node] # This is the sum of all 'length' weights
+        total_distance = distances[end_node]
         return path, total_distance
     else:
         return [], 0
