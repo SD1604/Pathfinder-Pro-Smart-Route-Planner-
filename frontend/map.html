@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
   <head>
-    <title>Pathfinder: DSA Final Project</title>
+    <title>Smart Route Planner: Pathfinder</title>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -50,14 +50,14 @@
       );
 
       let clickPoints = [];
-      let markers = []; // 1. New array to track markers
+      let markers = []; // 1. array to track markers
       let pathLine = null;
 
       map.on("click", function (e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
 
-        // 2. If we already have a path or 2 markers, clear everything for a fresh start
+        // 2. If already have a path or 2 markers, clear everything for a fresh start
         if (clickPoints.length === 0) {
           // Clear old path
           if (pathLine) map.removeLayer(pathLine);
@@ -68,7 +68,7 @@
 
         clickPoints.push([lat, lng]);
 
-        // 3. Create marker and save it to our array
+        // 3. Create marker and save it to rray
         let newMarker = L.marker([lat, lng]).addTo(map);
         markers.push(newMarker);
 
@@ -96,7 +96,7 @@
                   "The locations are too far apart or outside the map area. Please try closer points.",
                 );
               }
-              clickPoints = []; // Reset points so the next click triggers a "Clear"
+              clickPoints = []; // Reset points
             });
         }
       });
