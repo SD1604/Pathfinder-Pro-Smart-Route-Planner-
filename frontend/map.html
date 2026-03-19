@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Pathfinder: DSA Final Project</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <style>
+      #map {
+        height: 600px;
+        width: 100%;
+        border: 2px solid #333;
+      }
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Pathfinder Route Planner</h1>
+    <p>
+      Instructions: Click two points on the map to find the shortest path using
+      <b>Dijkstra's Algorithm</b>.
+    </p>
+
+    <div
+      id="info"
+      style="
+        background: #eee;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+      "
+    >
+      Distance: <span id="dist">0</span> km | Est. Time:
+      <span id="time">0</span> mins
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      // 2. Initialize the map (Center it on Manhattan, NY)
+      // Change this line in index.html
+      const map = L.map("map").setView([28.6139, 77.209], 12); // Latitude, Longitude, Zoom Level
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(
+        map,
+      );
+
+      let clickPoints = [];
+      let markers = []; // 1. New array to track markers
+      let pathLine = null;
+
+      map.on("click", function (e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+
+        // 2. If we already have a path or 2 markers, clear everything for a fresh start
+        if (clickPoints.length === 0) {
+          // Clear old path
+          if (pathLine) map.removeLayer(pathLine);
+          // Clear old markers from the map
+          markers.forEach((m) => map.removeLayer(m));
+          markers = [];
+        }
+
+        clickPoints.push([lat, lng]);
+
+        // 3. Create marker and save it to our array
+        let newMarker = L.marker([lat, lng]).addTo(map);
+        markers.push(newMarker);
+
+        if (clickPoints.length === 2) {
+          fetch("http://127.0.0.1:5000/find_path", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              start: clickPoints[0],
+              end: clickPoints[1],
+            }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.path && data.path.length > 0) {
+                pathLine = L.polyline(data.path, {
+                  color: "blue",
+                  weight: 6,
+                }).addTo(map);
+                map.fitBounds(pathLine.getBounds());
+                document.getElementById("dist").innerText = data.distance;
+                document.getElementById("time").innerText = data.time;
+              } else {
+                alert(
+                  "The locations are too far apart or outside the map area. Please try closer points.",
+                );
+              }
+              clickPoints = []; // Reset points so the next click triggers a "Clear"
+            });
+        }
+      });
+    </script>
+  </body>
+</html>
