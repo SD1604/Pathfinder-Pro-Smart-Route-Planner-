@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import osmnx as ox
 from algorithms.dijkstra import custom_dijkstra
+from algorithms.astar_path import astar_path
 from graph.graph_loader import initialize_graph
 from utils.geo_utils import get_nearest_node, get_nearest_edge, get_closest_node_from_edge
 
@@ -40,8 +41,11 @@ def find_path():
     start_node = get_closest_node_from_edge(G, start_coords[0], start_coords[1], start_edge)
     end_node = get_closest_node_from_edge(G, end_coords[0], end_coords[1], end_edge)
 
-    # 3. Custom Dijkstra
-    path_nodes, distance_meters = custom_dijkstra(G, start_node, end_node)
+    # # 3. Custom Dijkstra
+    # path_nodes, distance_meters = custom_dijkstra(G, start_node, end_node)
+
+    # 3. A* Pathfinding
+    path_nodes, distance_meters = astar_path(G, start_node, end_node)
     
     if not path_nodes:
         return jsonify({"error": "No path found"}), 404
