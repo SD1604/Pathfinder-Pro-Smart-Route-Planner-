@@ -19,7 +19,7 @@
     </style>
   </head>
   <body>
-    <h1>Pathfinder Route Planner</h1>
+    <h1>Pathfinder Pro - Smart Route Planner</h1>
     <p>
       Instructions: Click two points on the map to find the shortest path using
       <b>A* Path Algorithm (based on Haversine Heuristic)</b>.
@@ -42,8 +42,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-      // 2. Initialize the map (Center it on Manhattan, NY)
-      // Change this line in index.html
+      // 2. Initialize the map centered on Delhi
       const map = L.map("map").setView([28.6139, 77.209], 12); // Latitude, Longitude, Zoom Level
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(
         map,
