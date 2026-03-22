@@ -28,8 +28,12 @@ def astar_path(graph, start_node, end_node):
     # [(priority, distance, node_id)]
     pq = [(0, 0, start_node)]
 
+    nodes_visited = 0
+
     while pq:
         priority, current_distance, u = heapq.heappop(pq)
+
+        nodes_visited += 1
         
         if u==end_node:
             break
@@ -63,8 +67,8 @@ def astar_path(graph, start_node, end_node):
     path = path[::-1]
 
     if path and path[0] == start_node:
-        return path, distances[end_node]
+        return path, distances[end_node], nodes_visited
     else:
-        return [], 0
+        return [], 0, nodes_visited 
 
     print("A* pathfinding algorithm implemented successfully.")

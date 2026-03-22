@@ -1,77 +1,620 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <title>Smart Route Planner: Pathfinder</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pathfinder Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
+
     <style>
-      #map {
-        height: 600px;
-        width: 100%;
-        border: 2px solid #333;
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
+
+      :root {
+        --bg: #060c18;
+        --panel-bg: #0a1120;
+        --panel-border: rgba(255, 255, 255, 0.06);
+        --surface: #0f1a2e;
+        --surface2: #131f33;
+        --cyan: #22d3ee;
+        --indigo: #818cf8;
+        --muted: #4a5a72;
+        --text: #e2e8f0;
+        --subtext: #64748b;
+        --route: #22d3ee;
+        --route-glow: rgba(34, 211, 238, 0.18);
+      }
+
       body {
-        font-family: sans-serif;
-        padding: 20px;
+        font-family: "Space Grotesk", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        overflow: hidden;
+        height: 100vh;
+      }
+
+      /* ── MAP ─────────────────────────────────────── */
+      #map {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+      }
+
+      /* ── PANEL ───────────────────────────────────── */
+      #panel {
+        position: fixed;
+        top: 24px;
+        left: 24px;
+        width: 340px;
+        z-index: 1000;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        box-shadow:
+          0 32px 80px rgba(0, 0, 0, 0.6),
+          0 0 0 0.5px rgba(255, 255, 255, 0.04) inset;
+        backdrop-filter: blur(24px);
+      }
+
+      /* header */
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .logo-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .logo-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: #0e1f3d;
+        border: 1px solid rgba(34, 211, 238, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .logo-icon svg {
+        display: block;
+      }
+      .logo-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #f1f5f9;
+        letter-spacing: -0.01em;
+      }
+      .logo-sub {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        color: var(--cyan);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-top: 1px;
+      }
+      .algo-badge {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--cyan);
+        background: rgba(34, 211, 238, 0.08);
+        border: 1px solid rgba(34, 211, 238, 0.15);
+        border-radius: 8px;
+        padding: 5px 10px;
+        letter-spacing: 0.05em;
+      }
+
+      /* progress bar */
+      .progress-track {
+        height: 2px;
+        background: var(--surface);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--cyan), var(--indigo));
+        border-radius: 2px;
+        transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* waypoints */
+      .waypoints {
+        display: flex;
+        gap: 12px;
+        align-items: stretch;
+      }
+      .wp-spine {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 14px;
+        padding-bottom: 14px;
+        gap: 0;
+      }
+      .wp-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .wp-dot.origin {
+        background: var(--cyan);
+      }
+      .wp-dot.dest {
+        background: var(--indigo);
+      }
+      .wp-line {
+        flex: 1;
+        width: 1px;
+        background: var(--surface2);
+        margin: 5px 0;
+        min-height: 24px;
+      }
+      .wp-cards {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .wp-card {
+        background: var(--surface);
+        border-radius: 12px;
+        padding: 11px 14px;
+        cursor: default;
+        transition: border-color 0.2s;
+      }
+      .wp-card.origin {
+        border: 1px solid rgba(34, 211, 238, 0.15);
+      }
+      .wp-card.dest {
+        border: 1px solid rgba(129, 140, 248, 0.15);
+      }
+      .wp-card.active.origin {
+        border-color: rgba(34, 211, 238, 0.45);
+      }
+      .wp-card.active.dest {
+        border-color: rgba(129, 140, 248, 0.45);
+      }
+      .wp-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-weight: 500;
+        margin-bottom: 3px;
+      }
+      .wp-label.origin {
+        color: var(--cyan);
+      }
+      .wp-label.dest {
+        color: var(--indigo);
+      }
+      .wp-hint {
+        font-size: 12px;
+        color: var(--subtext);
+      }
+      .wp-coords {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text);
+        display: none;
+      }
+
+      /* metrics */
+      .metrics {
+        display: none;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .metrics.show {
+        display: flex;
+      }
+      .metric-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .metric-card {
+        background: var(--surface);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+      .metric-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--subtext);
+        margin-bottom: 4px;
+      }
+      .metric-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+      .metric-unit {
+        font-size: 11px;
+        color: var(--subtext);
+        font-weight: 400;
+        margin-left: 2px;
+      }
+      .nodes-card {
+        background: var(--surface);
+        border: 1px solid rgba(34, 211, 238, 0.1);
+        border-radius: 12px;
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .nodes-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--cyan);
+        margin-bottom: 4px;
+      }
+      .nodes-value {
+        font-size: 24px;
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+      .nodes-icon {
+        opacity: 0.25;
+      }
+
+      /* instruction */
+      .instruction {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--surface);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 9px 12px;
+      }
+      .instruction-text {
+        font-size: 11px;
+        color: var(--subtext);
+        line-height: 1.5;
+      }
+
+      /* reset button */
+      .reset-btn {
+        width: 100%;
+        padding: 13px;
+        background: rgba(34, 211, 238, 0.08);
+        border: 1px solid rgba(34, 211, 238, 0.18);
+        border-radius: 12px;
+        color: var(--cyan);
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .reset-btn:hover {
+        background: rgba(34, 211, 238, 0.14);
+        border-color: rgba(34, 211, 238, 0.3);
+      }
+      .reset-btn:active {
+        transform: scale(0.98);
+      }
+
+      /* leaflet overrides */
+      .leaflet-bar a {
+        background: var(--panel-bg) !important;
+        color: var(--cyan) !important;
+        border: 1px solid var(--panel-border) !important;
+      }
+      .leaflet-bar a:hover {
+        background: var(--surface) !important;
+      }
+      .leaflet-control-attribution {
+        display: none !important;
       }
     </style>
   </head>
   <body>
-    <h1>Pathfinder Pro - Smart Route Planner</h1>
-    <p>
-      Instructions: Click two points on the map to find the shortest path using
-      <b>A* Path Algorithm (based on Haversine Heuristic)</b>.
-    </p>
-
-    <div
-      id="info"
-      style="
-        background: #eee;
-        padding: 10px;
-        margin-bottom: 10px;
-        border-radius: 5px;
-      "
-    >
-      Distance: <span id="dist">0</span> km | Est. Time:
-      <span id="time">0</span> mins
-    </div>
-
     <div id="map"></div>
+
+    <aside id="panel">
+      <!-- Header -->
+      <div class="header">
+        <div class="logo-group">
+          <div class="logo-icon">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M13 3L4 14H11L11 21L20 10H13L13 3Z"
+                fill="#22d3ee"
+                stroke="#22d3ee"
+                stroke-width="0.5"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </div>
+          <div>
+            <div class="logo-title">Pathfinder Pro</div>
+            <div class="logo-sub">Route Finder</div>
+          </div>
+        </div>
+        <div class="algo-badge">A*</div>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+
+      <!-- Waypoints -->
+      <div class="waypoints">
+        <div class="wp-spine">
+          <div class="wp-dot origin"></div>
+          <div class="wp-line"></div>
+          <div class="wp-dot dest"></div>
+        </div>
+        <div class="wp-cards">
+          <div class="wp-card origin" id="card-origin">
+            <div class="wp-label origin">Origin</div>
+            <div class="wp-hint" id="hint-origin">Click map to place</div>
+            <div class="wp-coords" id="coords-origin"></div>
+          </div>
+          <div class="wp-card dest" id="card-dest">
+            <div class="wp-label dest">Destination</div>
+            <div class="wp-hint" id="hint-dest">Click map to place</div>
+            <div class="wp-coords" id="coords-dest"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics (hidden until route found) -->
+      <div class="metrics" id="metrics">
+        <div class="metric-row">
+          <div class="metric-card">
+            <div class="metric-label">Distance</div>
+            <div class="metric-value">
+              <span id="dist">0</span><span class="metric-unit">km</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Execution</div>
+            <div class="metric-value">
+              <span id="exec">0</span><span class="metric-unit">ms</span>
+            </div>
+          </div>
+        </div>
+        <div class="nodes-card">
+          <div>
+            <div class="nodes-label">Nodes Explored</div>
+            <div class="nodes-value" id="nodes">—</div>
+          </div>
+          <svg
+            class="nodes-icon"
+            width="32"
+            height="32"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#22d3ee"
+            stroke-width="1.4"
+          >
+            <circle cx="12" cy="12" r="2.5" />
+            <circle cx="4" cy="5" r="1.8" />
+            <circle cx="20" cy="5" r="1.8" />
+            <circle cx="4" cy="19" r="1.8" />
+            <circle cx="20" cy="19" r="1.8" />
+            <line x1="5.2" y1="6.2" x2="10.8" y2="10.8" />
+            <line x1="18.8" y1="6.2" x2="13.2" y2="10.8" />
+            <line x1="5.2" y1="17.8" x2="10.8" y2="13.2" />
+            <line x1="18.8" y1="17.8" x2="13.2" y2="13.2" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Instruction -->
+      <div class="instruction" id="instruction-row">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#4a5a72"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <circle cx="12" cy="16" r="0.5" fill="#4a5a72" />
+        </svg>
+        <span class="instruction-text" id="instruction-text"
+          >Click the map to set your origin point</span
+        >
+      </div>
+
+      <!-- Reset -->
+      <button class="reset-btn" onclick="resetMap()">Reset Navigation</button>
+    </aside>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-      // 2. Initialize the map centered on Delhi
-      const map = L.map("map").setView([28.6139, 77.209], 12); // Latitude, Longitude, Zoom Level
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(
-        map,
-      );
+      // ── MAP SETUP ───────────────────────────────────────────────────────────
+      const map = L.map("map", {
+        zoomControl: false,
+        attributionControl: false,
+      }).setView([28.6139, 77.209], 12);
 
-      let clickPoints = [];
-      let markers = []; // 1. array to track markers
-      let pathLine = null;
+      // Stadia Alidade Smooth Dark — clean, modern, very legible on dark panels
+      L.tileLayer(
+        "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
+        {
+          maxZoom: 20,
+          attribution: "",
+        },
+      ).addTo(map);
 
+      // Fallback to CARTO dark if Stadia unavailable
+      // L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+      L.control.zoom({ position: "bottomright" }).addTo(map);
+
+      // ── STATE ───────────────────────────────────────────────────────────────
+      let clickPoints = [],
+        markers = [],
+        pathLayers = [];
+
+      // ── CUSTOM MARKER ───────────────────────────────────────────────────────
+      function makeMarker(lat, lng, type) {
+        // type: 'origin' | 'dest'
+        const isOrigin = type === "origin";
+        const color = isOrigin ? "#22d3ee" : "#818cf8";
+        const outer = isOrigin
+          ? "rgba(34,211,238,0.18)"
+          : "rgba(129,140,248,0.18)";
+
+        const icon = L.divIcon({
+          className: "",
+          iconAnchor: [18, 18],
+          html: `
+            <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="18" cy="18" r="16" fill="${outer}" stroke="${color}" stroke-width="1"/>
+              <circle cx="18" cy="18" r="6" fill="${color}"/>
+              <circle cx="18" cy="18" r="3" fill="#060c18"/>
+            </svg>
+          `,
+        });
+        return L.marker([lat, lng], { icon }).addTo(map);
+      }
+
+      // ── ROUTE LINE ──────────────────────────────────────────────────────────
+      function drawRoute(coords) {
+        // Outer very faint halo
+        const halo = L.polyline(coords, {
+          color: "#22d3ee",
+          weight: 20,
+          opacity: 0.04,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(map);
+
+        // Mid glow
+        const glow = L.polyline(coords, {
+          color: "#22d3ee",
+          weight: 8,
+          opacity: 0.12,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(map);
+
+        // Core line
+        const line = L.polyline(coords, {
+          color: "#22d3ee",
+          weight: 2.5,
+          opacity: 1,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(map);
+
+        // Dashed overlay for texture
+        const dash = L.polyline(coords, {
+          color: "#ffffff",
+          weight: 1,
+          opacity: 0.15,
+          dashArray: "6 10",
+          lineCap: "round",
+        }).addTo(map);
+
+        pathLayers.push(halo, glow, line, dash);
+        return line;
+      }
+
+      // ── UI HELPERS ──────────────────────────────────────────────────────────
+      function setProgress(pct) {
+        document.getElementById("progress-fill").style.width = pct + "%";
+      }
+
+      function setInstruction(text) {
+        document.getElementById("instruction-text").textContent = text;
+      }
+
+      function updateCoords(type, lat, lng) {
+        const hint = document.getElementById(`hint-${type}`);
+        const coords = document.getElementById(`coords-${type}`);
+        hint.style.display = "none";
+        coords.style.display = "block";
+        coords.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        document.getElementById(`card-${type}`).classList.add("active");
+      }
+
+      // ── RESET ───────────────────────────────────────────────────────────────
+      function resetMap() {
+        clickPoints = [];
+        markers.forEach((m) => map.removeLayer(m));
+        markers = [];
+        pathLayers.forEach((l) => map.removeLayer(l));
+        pathLayers = [];
+
+        ["origin", "dest"].forEach((t) => {
+          document.getElementById(`hint-${t}`).style.display = "block";
+          document.getElementById(`coords-${t}`).style.display = "none";
+          document.getElementById(`card-${t}`).classList.remove("active");
+        });
+
+        document.getElementById("metrics").classList.remove("show");
+        setProgress(0);
+        setInstruction("Click the map to set your origin point");
+      }
+
+      // ── MAP CLICK ───────────────────────────────────────────────────────────
       map.on("click", function (e) {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
+        if (clickPoints.length >= 2) resetMap();
 
-        // 2. If already have a path or 2 markers, clear everything for a fresh start
-        if (clickPoints.length === 0) {
-          // Clear old path
-          if (pathLine) map.removeLayer(pathLine);
-          // Clear old markers from the map
-          markers.forEach((m) => map.removeLayer(m));
-          markers = [];
-        }
-
+        const { lat, lng } = e.latlng;
         clickPoints.push([lat, lng]);
 
-        // 3. Create marker and save it to rray
-        let newMarker = L.marker([lat, lng]).addTo(map);
-        markers.push(newMarker);
+        if (clickPoints.length === 1) {
+          markers.push(makeMarker(lat, lng, "origin"));
+          updateCoords("origin", lat, lng);
+          setProgress(40);
+          setInstruction("Now click to set your destination");
+        }
 
         if (clickPoints.length === 2) {
+          markers.push(makeMarker(lat, lng, "dest"));
+          updateCoords("dest", lat, lng);
+          setProgress(70);
+          setInstruction("Calculating shortest path…");
+
           fetch("http://127.0.0.1:5000/find_path", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -80,22 +623,25 @@
               end: clickPoints[1],
             }),
           })
-            .then((response) => response.json())
+            .then((r) => r.json())
             .then((data) => {
-              if (data.path && data.path.length > 0) {
-                pathLine = L.polyline(data.path, {
-                  color: "blue",
-                  weight: 6,
-                }).addTo(map);
-                map.fitBounds(pathLine.getBounds());
-                document.getElementById("dist").innerText = data.distance;
-                document.getElementById("time").innerText = data.time;
-              } else {
-                alert(
-                  "The locations are too far apart or outside the map area. Please try closer points.",
-                );
+              if (data.path) {
+                const line = drawRoute(data.path);
+                map.fitBounds(line.getBounds(), { padding: [80, 80] });
+
+                document.getElementById("dist").textContent = data.distance;
+                document.getElementById("exec").textContent =
+                  data.execution_time;
+                document.getElementById("nodes").textContent =
+                  data.nodes_visited.toLocaleString();
+                document.getElementById("metrics").classList.add("show");
+                setProgress(100);
+                setInstruction("Route found — click map to start over");
               }
-              clickPoints = []; // Reset points
+            })
+            .catch(() => {
+              setInstruction("Could not reach server. Is it running?");
+              setProgress(0);
             });
         }
       });

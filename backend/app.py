@@ -55,6 +55,10 @@ def find_path():
     # end_node = get_closest_node_from_edge(G, end_coords[0], end_coords[1], end_edge)
     # print(f"Nodes picked in: {time.time() - t1:.4f}s")
 
+    # --- UI SYNC: START BENCHMARK ---
+    ui_bench_start = time.time()
+    # -------------------------------
+
     start_node = get_nearest_node(G, start_coords[0], start_coords[1])
     end_node = get_nearest_node(G, end_coords[0], end_coords[1])
     # print(f"Nearest nodes found in: {time.time() - t1:.4f}s")
@@ -64,9 +68,13 @@ def find_path():
 
     # 3. A* Pathfinding
     # t2 = time.time()
-    path_nodes, distance_meters = astar_path(G, start_node, end_node)
+    path_nodes, distance_meters, nodes_visited = astar_path(G, start_node, end_node)
     # print(f"A* search took: {time.time() - t2:.4f}s")
     
+    # --- UI SYNC: END BENCHMARK ---
+    execution_time_ms = (time.time() - ui_bench_start) * 1000
+    # -----------------------------
+
     if not path_nodes:
         return jsonify({"error": "No path found"}), 404
 
@@ -87,7 +95,10 @@ def find_path():
     return jsonify({
         "path": route_coordinates,
         "distance": round(distance_km, 2),
-        "time": round(time_minutes, 1)
+        "time": round(time_minutes, 1),
+        # ADDED FOR COBALT UI:
+        "execution_time": round(execution_time_ms, 2),
+        "nodes_visited": nodes_visited
     })
 
 if __name__ == '__main__':
