@@ -13,15 +13,14 @@ def haversine(lon1, lat1, lon2, lat2):
 
 def astar_path(graph, start_node, end_node):
 
-    # SPEED FIX: Pre-cache all coordinates into a simple dict
-    # This avoids slow 'graph.nodes[v]' lookups inside the loop
+    # Pre-cache all coordinates into a simple dict called coords to avoid slow 'graph.nodes[v]' lookups inside the loop
     coords = {node: (data['x'], data['y']) for node, data in graph.nodes(data=True)}
 
     distances = {node: float('inf') for node in graph.nodes}
     distances[start_node] = 0
     parents = {node: None for node in graph.nodes}
 
-    # Get goal coordinates once for the heuristic
+    # Get goal coordinates for the heuristic
     goal_lat, goal_lon = coords[end_node]
 
     # Priority queue
