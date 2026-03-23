@@ -15,9 +15,10 @@ print("Loading map data... please wait.")
 # G = initialize_graph()
 
 G = ox.load_graphml("delhi_full.graphml")
+
 # Force the index to build NOW
 _ = ox.distance.nearest_nodes(G, X=77.2, Y=28.6) 
-print("Search Index Ready!")
+print("Search Index Ready!") #Spatial index is built on first call, so we do a dummy call to ensure it's ready before we start handling requests.
 
 
 # PRE-CACHing the coordinates for instant lookup
