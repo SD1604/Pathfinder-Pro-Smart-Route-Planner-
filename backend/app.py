@@ -4,8 +4,10 @@ from flask_cors import CORS # pyright: ignore[reportMissingModuleSource]
 import osmnx as ox
 from algorithms.dijkstra import custom_dijkstra
 from algorithms.astar_path import astar_path
+from scipy.spatial import KDTree
+import pandas as pd
 from graph.graph_loader import initialize_graph
-from utils.geo_utils import get_nearest_node, get_nearest_edge, get_closest_node_from_edge
+from utils.geo_utils import get_nearest_node, build_spatial_index
 
 app = Flask(__name__)
 CORS(app) 
@@ -16,10 +18,7 @@ print("Loading map data... please wait.")
 
 G = ox.load_graphml("delhi_full.graphml")
 
-# Force the index to build NOW
-_ = ox.distance.nearest_nodes(G, X=77.2, Y=28.6) 
-print("Search Index Ready!") #Spatial index is built on first call, so we do a dummy call to ensure it's ready before we start handling requests.
-
+tree, node_ids = build_spatial_index(G)
 
 # PRE-CACHing the coordinates for instant lookup
 node_coords = {node: [data['y'], data['x']] for node, data in G.nodes(data=True)}
@@ -60,8 +59,8 @@ def find_path():
     ui_bench_start = time.time()
     # -------------------------------
 
-    start_node = get_nearest_node(G, start_coords[0], start_coords[1])
-    end_node = get_nearest_node(G, end_coords[0], end_coords[1])
+    start_node = get_nearest_node(tree, node_ids, start_coords[0], start_coords[1])
+    end_node = get_nearest_node(tree, node_ids, end_coords[0], end_coords[1])
     # print(f"Nearest nodes found in: {time.time() - t1:.4f}s")
 
     # # 3. Custom Dijkstra
