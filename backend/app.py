@@ -54,13 +54,6 @@ def find_path():
     # 4. Calculate Time and convert to kilometers and assume 30 km/h average Delhi traffic speed
     distance_km = distance_meters / 1000
     time_minutes = (distance_km / 45) * 60
-        
-    # # 4. Convert Node IDs to Lat/Lng 
-    # route_coordinates = []
-    # for node in path_nodes:
-    #     node_data = G.nodes[node]
-    #     # x is longitude, y is latitude 
-    #     route_coordinates.append([node_data['y'], node_data['x']])
 
     # 4. Convert Node IDs to Lat/Lng using FAST cache
     route_coordinates = [node_coords[node] for node in path_nodes]
