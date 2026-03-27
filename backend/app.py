@@ -18,6 +18,10 @@ print("Loading map data... please wait.")
 
 G = ox.load_graphml("delhi_full.graphml")
 
+print("Imputing Road Speeds and Travel Times...")
+G = ox.add_edge_speeds(G)
+G = ox.add_edge_travel_times(G)
+
 tree, node_ids = build_spatial_index(G)
 
 # PRE-CACHing the coordinates for instant lookup
@@ -41,7 +45,7 @@ def find_path():
 
     # 3. A* Pathfinding
     # t2 = time.time()
-    path_nodes, distance_meters, nodes_visited = astar_path(G, start_node, end_node)
+    path_nodes, total_time_seconds, nodes_visited = astar_path(G, start_node, end_node, weight='travel_time')
     # print(f"A* search took: {time.time() - t2:.4f}s")
     
     # --- UI SYNC: END BENCHMARK ---
@@ -51,9 +55,13 @@ def find_path():
     if not path_nodes:
         return jsonify({"error": "No path found"}), 404
 
+    time_minutes = total_time_seconds/60
+    
     # 4. Calculate Time and convert to kilometers and assume 30 km/h average Delhi traffic speed
+    distance_meters = sum(
+    G.get_edge_data(u, v)[0].get('length', 0) 
+    for u, v in zip(path_nodes[:-1], path_nodes[1:]))
     distance_km = distance_meters / 1000
-    time_minutes = (distance_km / 45) * 60
 
     # 4. Convert Node IDs to Lat/Lng using FAST cache
     route_coordinates = [node_coords[node] for node in path_nodes]

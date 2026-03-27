@@ -11,10 +11,12 @@ def haversine(lon1, lat1, lon2, lat2):
 
     return 2 * r * asin(sqrt(a))
 
-def astar_path(graph, start_node, end_node):
+def astar_path(graph, start_node, end_node, weight='travel_time'):
 
     # Pre-cache all coordinates into a simple dict called coords to avoid slow 'graph.nodes[v]' lookups inside the loop
     coords = {node: (data['x'], data['y']) for node, data in graph.nodes(data=True)}
+
+    max_speed_mps = 22.22
 
     distances = {node: float('inf') for node in graph.nodes}
     distances[start_node] = 0
@@ -30,30 +32,32 @@ def astar_path(graph, start_node, end_node):
     nodes_visited = 0
 
     while pq:
-        priority, current_distance, u = heapq.heappop(pq)
+        priority, current_cost, u = heapq.heappop(pq)
 
         nodes_visited += 1
         
         if u==end_node:
             break
 
-        if current_distance > distances[u] or current_distance > 500000:
+        if current_cost > distances[u] or current_cost > 500000:
             continue
 
         # Relax edges
         for v, edge_data in graph[u].items():
-            weight = min(e.get('length', 1) for e in edge_data.values())
-            new_dist = current_distance + weight
+            edge_weight = min(e.get(weight, 1) for e in edge_data.values())
+            new_cost = current_cost + edge_weight
 
-            if new_dist < distances[v]:
-                distances[v] = new_dist
+            if new_cost < distances[v]:
+                distances[v] = new_cost
                 parents[v] = u
 
                 # Haversine heuristic
                 v_lon, v_lat = coords[v]
-                h = haversine(v_lon, v_lat,
+                h_dist = haversine(v_lon, v_lat,
                               goal_lon, goal_lat)
-                heapq.heappush(pq, (new_dist + h, new_dist, v))
+
+                h = h_dist/max_speed_mps if weight == 'travel_time' else h_dist
+                heapq.heappush(pq, (new_cost + h, new_cost, v))
 
 
     # Reconstruct path
