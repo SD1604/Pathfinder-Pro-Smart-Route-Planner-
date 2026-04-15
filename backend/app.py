@@ -14,9 +14,7 @@ CORS(app)
 
 # 1. Load the graph
 print("Loading map data... please wait.")
-# G = initialize_graph()
-
-G = ox.load_graphml("delhi_full.graphml")
+G = initialize_graph()
 
 print("Imputing Road Speeds and Travel Times...")
 G = ox.add_edge_speeds(G)
