@@ -24,20 +24,12 @@ GRAPHML_PATH = "delhi_full.graphml"
 
 def download_from_gdrive(file_id, destination):
     print("Downloading delhi_full.graphml from Google Drive...")
-    URL = "https://drive.google.com/uc?export=download"
     session = requests.Session()
-    response = session.get(URL, params={"id": file_id}, stream=True)
     
-    # Handle large file confirmation token
-    token = None
-    for key, value in response.cookies.items():
-        if key.startswith("download_warning"):
-            token = value
-            break
-
-    if token:
-        response = session.get(URL, params={"id": file_id, "confirm": token}, stream=True)
-
+    url = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t&uuid=1"
+    
+    response = session.get(url, stream=True)
+    
     with open(destination, "wb") as f:
         for chunk in response.iter_content(32768):
             if chunk:
