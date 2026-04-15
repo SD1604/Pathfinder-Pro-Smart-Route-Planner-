@@ -1,6 +1,8 @@
 import os
 import osmnx as ox
 import networkx as nx
+import requests
+
 
 # def initialize_graph(area_name="Delhi, India"):
 
@@ -17,32 +19,37 @@ import networkx as nx
 
 #     return graph
 
-def initialize_graph(file_path="delhi_full.graphml"):
-    # Check if map is laready saved
-    if os.path.exists(file_path):
-        print(f"Loading graph from local file: {file_path}")
-        return ox.load_graphml(file_path)
+GDRIVE_FILE_ID = "1IluMTiHX1vJVismcXdIUsZzV5m9GD3u3"
+GRAPHML_PATH = "delhi_full.graphml"
 
-    print("File not found. Downloading Delhi graph from the internet...")
+def download_from_gdrive(file_id, destination):
+    print("Downloading delhi_full.graphml from Google Drive...")
+    URL = "https://drive.google.com/uc?export=download"
+    session = requests.Session()
+    response = session.get(URL, params={"id": file_id}, stream=True)
+    
+    # Handle large file confirmation token
+    token = None
+    for key, value in response.cookies.items():
+        if key.startswith("download_warning"):
+            token = value
+            break
 
-    # (left, bottom, right, top)
-    delhi_bbox = (76.83, 28.40, 77.35, 28.89)
-    G = ox.graph_from_bbox(bbox=delhi_bbox, network_type='drive', retain_all=False)
+    if token:
+        response = session.get(URL, params={"id": file_id, "confirm": token}, stream=True)
 
-    # 2. getting SCC
-    largest_scc_nodes = max(nx.strongly_connected_components(G), key=len)
-    G = G.subgraph(largest_scc_nodes).copy()
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(32768):
+            if chunk:
+                f.write(chunk)
+    print("Download complete!")
 
-    # 3.
-    print(f"Saving graph to {file_path} for next time...")
-    ox.save_graphml(G, filepath=file_path)
 
+def initialize_graph(file_path=GRAPHML_PATH):
+    if not os.path.exists(file_path):
+        download_from_gdrive(GDRIVE_FILE_ID, file_path)
+
+    print(f"Loading graph from {file_path}...")
+    G = ox.load_graphml(file_path)
     print(f"Graph loaded with {len(G.nodes)} nodes and {len(G.edges)} edges.")
     return G
-
-
-# if __name__ == "__main__":
-    
-#     G = initialize_graph("Delhi, India")
-
-#     ox.plot_graph(G)
