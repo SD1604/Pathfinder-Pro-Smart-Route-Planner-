@@ -41,10 +41,13 @@ def find_path():
     end_node = get_nearest_node(tree, node_ids, end_coords[0], end_coords[1])
     # print(f"Nearest nodes found in: {time.time() - t1:.4f}s")
 
-    # 3. A* Pathfinding
-    # t2 = time.time()
-    path_nodes, total_time_seconds, nodes_visited = astar_path(G, start_node, end_node, weight='travel_time')
-    # print(f"A* search took: {time.time() - t2:.4f}s")
+    try:
+        path_nodes, total_time_seconds, nodes_visited = astar_path(
+            G, start_node, end_node, weight='travel_time'
+        )
+    except Exception as e:
+        print(f"A* error: {e}")
+        return jsonify({"error": "Pathfinding failed internally"}), 500
     
     # --- UI SYNC: END BENCHMARK ---
     execution_time_ms = (time.time() - ui_bench_start) * 1000

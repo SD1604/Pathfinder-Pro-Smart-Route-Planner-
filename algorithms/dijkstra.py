@@ -46,7 +46,7 @@ def custom_dijkstra(G, start_node, end_node):
     # Reverse the path to get it from Start -> End
     path = path[::-1]
     
-    if path[0] == start_node:
+    if path and path[0] == start_node:
         total_distance = distances[end_node]
         return path, total_distance
     else:

@@ -39,7 +39,7 @@ def astar_path(graph, start_node, end_node, weight='travel_time'):
         if u==end_node:
             break
 
-        if current_cost > distances[u] or current_cost > 500000:
+        if current_cost > distances[u]:
             continue
 
         # Relax edges
@@ -73,5 +73,3 @@ def astar_path(graph, start_node, end_node, weight='travel_time'):
         return path, distances[end_node], nodes_visited
     else:
         return [], 0, nodes_visited 
-
-    print("A* pathfinding algorithm implemented successfully.")
