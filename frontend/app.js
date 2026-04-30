@@ -264,9 +264,7 @@ function useMyLocation() {
 function makeMarker(lat, lng, type) {
   const isOrigin = type === "origin";
   const color = isOrigin ? "#22d3ee" : "#818cf8";
-  const outer = isOrigin
-    ? "rgba(34,211,238,0.18)"
-    : "rgba(129,140,248,0.18)";
+  const outer = isOrigin ? "rgba(34,211,238,0.18)" : "rgba(129,140,248,0.18)";
   const icon = L.divIcon({
     className: "",
     iconAnchor: [18, 18],
@@ -338,8 +336,7 @@ function placePoint(lat, lng, type) {
     }
     updateCoords("origin", lat, lng);
     setProgress(40);
-    if (clickPoints.length < 2)
-      setInstruction("Now set your destination");
+    if (clickPoints.length < 2) setInstruction("Now set your destination");
   } else {
     // dest
     if (clickPoints.length === 0) {
