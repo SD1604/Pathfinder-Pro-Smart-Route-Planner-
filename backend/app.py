@@ -6,7 +6,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import osmnx as ox
 from algorithms.dijkstra import custom_dijkstra
-from algorithms.astar_path import astar_path
+from algorithms.bidir_astar_path import bidir_astar_path
 from scipy.spatial import KDTree
 import pandas as pd
 from graph.graph_loader import initialize_graph
@@ -204,7 +204,7 @@ def find_path():
     ui_bench_start = time.time()
 
     try:
-        path_nodes, total_cost, nodes_visited = astar_path(
+        path_nodes, total_cost, nodes_visited = bidir_astar_path(
             G, start_node, end_node, weight=weight
         )
     except Exception as e:
