@@ -5,8 +5,13 @@ const API_BASE =
     ? "http://127.0.0.1:5000"
     : "";
 
-const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
-const NOMINATIM_EMAIL = "sushantduggal24@gmail.com";
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  CHANGE 1 of 3 — Replace Nominatim constants with OLA Maps      ║
+// ║  Delete the old NOMINATIM_BASE and NOMINATIM_EMAIL lines,        ║
+// ║  paste your key into OLA_API_KEY below.                          ║
+// ╚══════════════════════════════════════════════════════════════════╝
+const OLA_API_KEY = "7vxcLcSVNnnndP5b5m5SDeJbMjyLdwxb74TMC93i";
+const OLA_BASE = "https://api.olamaps.io";
 
 // ── STATE ────────────────────────────────────────────────────────────
 let clickPoints = [];
@@ -24,11 +29,9 @@ function toggleTheme() {
   currentTheme = currentTheme === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", currentTheme);
   localStorage.setItem("pfp-theme", currentTheme);
-  // Update tile layer for readability in light mode
   updateTiles();
 }
 
-// Persist theme across reloads
 (function initTheme() {
   const saved = localStorage.getItem("pfp-theme") || "dark";
   currentTheme = saved;
@@ -89,7 +92,6 @@ function setMode(mode, btn) {
     .querySelectorAll(".mode-btn")
     .forEach((b) => b.classList.remove("active"));
   btn.classList.add("active");
-  // Update algo badge
   const labels = { drive: "A*", walk: "A*", cycle: "A*" };
   document.getElementById("algo-label").textContent = labels[mode] || "A*";
   if (clickPoints.length === 2) computeRoute();
@@ -120,19 +122,55 @@ function clearSearch() {
   searchedLatLng = null;
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  CHANGE 2 of 3 — fetchSuggestions: Nominatim → OLA autocomplete ║
+// ║                                                                  ║
+// ║  OLD endpoint : nominatim.openstreetmap.org/search               ║
+// ║  NEW endpoint : api.olamaps.io/places/v1/autocomplete            ║
+// ║                                                                  ║
+// ║  OLA returns data.predictions[] where each item has:             ║
+// ║    .description        → full place name string                  ║
+// ║    .geometry.location  → { lat, lng }                            ║
+// ║                                                                  ║
+// ║  We normalize it into { lat, lon, display_name } — the exact     ║
+// ║  same shape showSuggestions() already expects, so nothing        ║
+// ║  below this function changes.                                    ║
+// ╚══════════════════════════════════════════════════════════════════╝
 async function fetchSuggestions(query) {
   try {
     const url =
-      `${NOMINATIM_BASE}/search?q=${encodeURIComponent(query + ", Delhi")}` +
-      `&format=json&limit=5&email=${NOMINATIM_EMAIL}&viewbox=76.8,28.4,77.4,28.9&bounded=1`;
-    const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+      `${OLA_BASE}/places/v1/autocomplete` +
+      `?input=${encodeURIComponent(query)}` +
+      `&api_key=${OLA_API_KEY}` +
+      `&location=28.6139,77.2090` + // bias toward Delhi center
+      `&radius=50000` + // 50 km — covers all of Delhi NCR
+      `&strictbounds=false`; // allow slight overflow
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "X-Request-Id": crypto.randomUUID() },
+    });
     const data = await res.json();
-    showSuggestions(data);
+
+    if (!data.predictions || data.status !== "ok") {
+      hideSuggestions();
+      return;
+    }
+
+    // Normalize → same { lat, lon, display_name } shape as old Nominatim results
+    const results = data.predictions.map((p) => ({
+      lat: p.geometry?.location?.lat ?? 0,
+      lon: p.geometry?.location?.lng ?? 0,
+      display_name: p.description ?? p.structured_formatting?.main_text ?? "",
+    }));
+
+    showSuggestions(results); // unchanged below this point
   } catch (err) {
-    console.error("Nominatim error:", err);
+    console.error("OLA Maps autocomplete error:", err);
   }
 }
 
+// ── showSuggestions, hideSuggestions, escapeAttr — UNCHANGED ─────────
 function showSuggestions(results) {
   const box = document.getElementById("search-suggestions");
   if (!results.length) {
@@ -168,10 +206,54 @@ function selectSuggestion(lat, lon, name) {
   map.setView(searchedLatLng, 15);
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  CHANGE 3 of 3 — doSearch: add OLA text search for Enter key    ║
+// ║                                                                  ║
+// ║  OLD: doSearch() just called fetchSuggestions() directly.        ║
+// ║  NEW: If the user presses Enter without picking a dropdown item, ║
+// ║       we call OLA's /places/v1/textsearch — it always returns    ║
+// ║       full geometry even for free-text queries.                  ║
+// ║       If suggestions are already visible, we skip this.          ║
+// ╚══════════════════════════════════════════════════════════════════╝
 async function doSearch() {
   const query = document.getElementById("search-input").value.trim();
   if (!query) return;
-  await fetchSuggestions(query);
+
+  // Suggestions already open — don't re-query
+  if (document.getElementById("search-suggestions").style.display === "block")
+    return;
+
+  try {
+    const url =
+      `${OLA_BASE}/places/v1/textsearch` +
+      `?input=${encodeURIComponent(query + " Delhi")}` +
+      `&api_key=${OLA_API_KEY}` +
+      `&location=28.6139,77.2090` +
+      `&radius=50000`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "X-Request-Id": crypto.randomUUID() },
+    });
+    const data = await res.json();
+
+    if (!data.results?.length) {
+      setInstruction("No results found — try a different search");
+      return;
+    }
+
+    const results = data.results.slice(0, 5).map((r) => ({
+      lat: r.geometry?.location?.lat ?? 0,
+      lon: r.geometry?.location?.lng ?? 0,
+      display_name:
+        r.name + (r.formatted_address ? ", " + r.formatted_address : ""),
+    }));
+
+    showSuggestions(results);
+  } catch (err) {
+    console.error("OLA Maps text search error:", err);
+    await fetchSuggestions(query); // graceful fallback to autocomplete
+  }
 }
 
 function setSearchedPoint(type) {
@@ -185,7 +267,8 @@ function setSearchedPoint(type) {
   if (clickPoints.length === 2) computeRoute();
 }
 
-// ── GEOLOCATION ──────────────────────────────────────────────────────
+// ── EVERYTHING BELOW IS UNCHANGED ────────────────────────────────────
+
 function useMyLocation() {
   if (!navigator.geolocation) {
     setInstruction("Geolocation not supported");
@@ -217,7 +300,6 @@ function useMyLocation() {
   );
 }
 
-// ── MARKERS ──────────────────────────────────────────────────────────
 function makeMarker(lat, lng, type) {
   const isOrigin = type === "origin";
   const color = isOrigin ? "#06b6d4" : "#a78bfa";
@@ -234,8 +316,6 @@ function makeMarker(lat, lng, type) {
   return L.marker([lat, lng], { icon }).addTo(map);
 }
 
-// ── ROUTE DRAWING ────────────────────────────────────────────────────
-// Draws a single-color route (fallback when no traffic segments returned)
 function drawRoute(coords, mode) {
   const modeColors = { drive: "#3b82f6", walk: "#10b981", cycle: "#f59e0b" };
   const color = modeColors[mode] || "#3b82f6";
@@ -264,7 +344,6 @@ function drawRoute(coords, mode) {
   return line;
 }
 
-// Draws segmented traffic route (when backend returns segments array)
 function drawSegmentedRoute(segments) {
   const COLOR = { free: "#10b981", moderate: "#f59e0b", heavy: "#ef4444" };
   const WEIGHT = { free: 3, moderate: 4, heavy: 5 };
@@ -296,10 +375,8 @@ function drawSegmentedRoute(segments) {
   if (bounds.length) map.fitBounds(bounds, { padding: [80, 80] });
 }
 
-// ── PLACE POINT ──────────────────────────────────────────────────────
 function placePoint(lat, lng, type) {
   if (type === "auto") type = clickPoints.length === 0 ? "origin" : "dest";
-
   if (type === "origin") {
     if (clickPoints[0]) {
       if (markers[0]) map.removeLayer(markers[0]);
@@ -332,7 +409,6 @@ function placePoint(lat, lng, type) {
   }
 }
 
-// ── ROUTE COMPUTATION ────────────────────────────────────────────────
 function computeRoute() {
   if (clickPoints.length < 2) return;
   pathLayers.forEach((l) => map.removeLayer(l));
@@ -358,25 +434,20 @@ function computeRoute() {
         setStatusDot("");
         return;
       }
-
-      // Draw route — prefer segmented traffic data if available
       if (data.segments && data.segments.length) {
         drawSegmentedRoute(data.segments);
       } else {
         const line = drawRoute(data.path, data.mode);
         map.fitBounds(line.getBounds(), { padding: [80, 80] });
       }
-
       document.getElementById("dist").textContent = data.distance;
       document.getElementById("eta").textContent = data.time;
       document.getElementById("exec").textContent = data.execution_time;
       document.getElementById("nodes").textContent =
         data.nodes_visited.toLocaleString();
       document.getElementById("metrics").classList.add("show");
-
       const cacheBadge = document.getElementById("cache-badge");
       cacheBadge.style.display = data.cache_hit ? "inline-block" : "none";
-
       renderDirections(data.directions || []);
       setProgress(100);
       setStatusDot("done");
@@ -396,7 +467,6 @@ function computeRoute() {
     });
 }
 
-// ── DIRECTIONS ───────────────────────────────────────────────────────
 function renderDirections(directions) {
   const list = document.getElementById("directions-list");
   const panel = document.getElementById("directions");
@@ -426,22 +496,18 @@ function toggleDirections() {
     : "show";
 }
 
-// ── UI HELPERS ───────────────────────────────────────────────────────
 function setProgress(pct) {
   const el = document.getElementById("progress-fill");
   el.style.width = pct + "%";
   el.parentElement.setAttribute("aria-valuenow", pct);
 }
-
 function setInstruction(text) {
   document.getElementById("instruction-text").textContent = text;
 }
-
 function setStatusDot(state) {
   const dot = document.getElementById("status-dot");
   dot.className = "status-dot" + (state ? " " + state : "");
 }
-
 function updateCoords(type, lat, lng) {
   document.getElementById(`hint-${type}`).style.display = "none";
   document.getElementById(`coords-${type}`).style.display = "block";
@@ -450,20 +516,17 @@ function updateCoords(type, lat, lng) {
   document.getElementById(`card-${type}`).classList.add("active");
 }
 
-// ── RESET ────────────────────────────────────────────────────────────
 function resetMap() {
   clickPoints = [];
   markers.forEach((m) => map.removeLayer(m));
   markers = [];
   pathLayers.forEach((l) => map.removeLayer(l));
   pathLayers = [];
-
   ["origin", "dest"].forEach((t) => {
     document.getElementById(`hint-${t}`).style.display = "block";
     document.getElementById(`coords-${t}`).style.display = "none";
     document.getElementById(`card-${t}`).classList.remove("active");
   });
-
   document.getElementById("metrics").classList.remove("show");
   document.getElementById("directions").classList.remove("show");
   document.getElementById("directions-list").innerHTML = "";
@@ -477,7 +540,6 @@ function resetMap() {
   setInstruction("Click the map to set your origin");
 }
 
-// ── MAP CLICK ────────────────────────────────────────────────────────
 map.on("click", function (e) {
   hideSuggestions();
   const { lat, lng } = e.latlng;
